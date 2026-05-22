@@ -1,0 +1,2 @@
+{"type":"index-pattern","id":"audit-logs","attributes":{"title":"audit_logs","timeFieldName":"createdAt"}}
+{"type":"index-pattern","id":"order-status-history","attributes":{"title":"order_status_history","timeFieldName":"changedAt"}}

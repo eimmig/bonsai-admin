@@ -1,0 +1,170 @@
+{
+  "uid": "pw45s-api",
+  "title": "PW45S API",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "10s",
+  "panels": [
+    {
+      "type": "stat",
+      "title": "Requests / min",
+      "gridPos": { "x": 0, "y": 0, "w": 6, "h": 4 },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(http_server_requests_seconds_count[1m])) * 60"
+        }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Error rate %",
+      "gridPos": { "x": 6, "y": 0, "w": 6, "h": 4 },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "(sum(rate(http_server_requests_seconds_count{outcome=\"SERVER_ERROR\"}[5m])) / sum(rate(http_server_requests_seconds_count[5m]))) * 100"
+        }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "P95 latency (ms)",
+      "gridPos": { "x": 12, "y": 0, "w": 6, "h": 4 },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.95, sum(rate(http_server_requests_seconds_bucket[5m])) by (le)) * 1000"
+        }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "JVM heap used (MB)",
+      "gridPos": { "x": 18, "y": 0, "w": 6, "h": 4 },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(jvm_memory_used_bytes{area=\"heap\"}) / 1024 / 1024"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "HTTP latency p50/p95/p99 (ms)",
+      "gridPos": { "x": 0, "y": 4, "w": 24, "h": 8 },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.50, sum(rate(http_server_requests_seconds_bucket[5m])) by (le)) * 1000",
+          "legendFormat": "p50"
+        },
+        {
+          "refId": "B",
+          "expr": "histogram_quantile(0.95, sum(rate(http_server_requests_seconds_bucket[5m])) by (le)) * 1000",
+          "legendFormat": "p95"
+        },
+        {
+          "refId": "C",
+          "expr": "histogram_quantile(0.99, sum(rate(http_server_requests_seconds_bucket[5m])) by (le)) * 1000",
+          "legendFormat": "p99"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Requests by status",
+      "gridPos": { "x": 0, "y": 12, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(http_server_requests_seconds_count[2m])) by (status)",
+          "legendFormat": "{{status}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "CPU usage",
+      "gridPos": { "x": 12, "y": 12, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "process_cpu_usage"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Top endpoints by RPS",
+      "gridPos": { "x": 0, "y": 20, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "topk(10, sum(rate(http_server_requests_seconds_count[2m])) by (uri))",
+          "legendFormat": "{{uri}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Errors by endpoint",
+      "gridPos": { "x": 12, "y": 20, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "topk(10, sum(rate(http_server_requests_seconds_count{status=~\"5..\"}[5m])) by (uri))",
+          "legendFormat": "{{uri}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "P95 latency by endpoint (ms)",
+      "gridPos": { "x": 0, "y": 28, "w": 24, "h": 8 },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "topk(10, histogram_quantile(0.95, sum(rate(http_server_requests_seconds_bucket[5m])) by (le, uri)) * 1000)",
+          "legendFormat": "{{uri}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "4xx rate by endpoint",
+      "gridPos": { "x": 0, "y": 36, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "topk(10, sum(rate(http_server_requests_seconds_count{status=~\"4..\"}[5m])) by (uri))",
+          "legendFormat": "{{uri}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Error % by endpoint",
+      "gridPos": { "x": 12, "y": 36, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "topk(10, (sum(rate(http_server_requests_seconds_count{status=~\"4..|5..\"}[5m])) by (uri)) / (sum(rate(http_server_requests_seconds_count[5m])) by (uri)) * 100)",
+          "legendFormat": "{{uri}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Apdex (T=0.5s) by endpoint",
+      "gridPos": { "x": 0, "y": 44, "w": 24, "h": 8 },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "topk(10, (sum(rate(http_server_requests_seconds_bucket{le=\"0.5\"}[5m])) by (uri) + sum(rate(http_server_requests_seconds_bucket{le=\"2.0\"}[5m])) by (uri)) / 2 / sum(rate(http_server_requests_seconds_count[5m])) by (uri))",
+          "legendFormat": "{{uri}}"
+        }
+      ]
+    }
+  ]
+}

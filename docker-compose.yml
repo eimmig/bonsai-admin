@@ -1,0 +1,88 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: pw45s-postgres
+
+    environment:
+      POSTGRES_DB: pw45s
+      POSTGRES_USER: pw45s
+      POSTGRES_PASSWORD: pw45s
+    ports:
+      - "5431:5432"
+    volumes:
+      - pw45s_pg:/var/lib/postgresql/data
+
+  minio:
+    image: minio/minio:latest
+    container_name: pw45s-minio
+
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - pw45s_minio:/data
+
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: pw45s-mailhog
+
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:9.2.8
+    container_name: pw45s-elasticsearch
+
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+    ports:
+      - "9200:9200"
+    volumes:
+      - pw45s_es:/usr/share/elasticsearch/data
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:9.2.8
+    container_name: pw45s-kibana
+
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+    ports:
+      - "5601:5601"
+    depends_on:
+      - elasticsearch
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: pw45s-prometheus
+
+    volumes:
+      - ./observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9090:9090"
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: pw45s-grafana
+
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /etc/grafana/provisioning/dashboards/pw45s-api.json
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
+    depends_on:
+      - prometheus
+
+volumes:
+  pw45s_pg:
+  pw45s_minio:
+  pw45s_es:
