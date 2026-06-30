@@ -1,5 +1,6 @@
 package com.utfpr.edu.br.pw45s.shared.security;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.utfpr.edu.br.pw45s.users.service.UserDetailsServiceImpl;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -30,7 +31,7 @@ public class SecurityConfig {
 
 	@Bean
 	public JwtAuthFilter jwtAuthFilter(JwtProperties properties) {
-		return new JwtAuthFilter(properties);
+		return new JwtAuthFilter(properties, new ObjectMapper());
 	}
 
 	@Bean
@@ -64,6 +65,7 @@ public class SecurityConfig {
 			.authorizeHttpRequests(auth -> auth
 				.requestMatchers(HttpMethod.POST, "/auth/login", "/users/register").permitAll()
 				.requestMatchers("/v3/api-docs/**", "/swagger-ui/**").permitAll()
+				.requestMatchers("/actuator/health/**", "/actuator/prometheus").permitAll()
 				.anyRequest().authenticated()
 			)
 			.authenticationProvider(authenticationProvider)

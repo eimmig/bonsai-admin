@@ -1,5 +1,6 @@
 package com.utfpr.edu.br.pw45s.attachments.controller;
 
+import com.utfpr.edu.br.pw45s.attachments.dto.AttachmentMapper;
 import com.utfpr.edu.br.pw45s.attachments.dto.AttachmentResponse;
 import com.utfpr.edu.br.pw45s.attachments.entity.Attachment;
 import com.utfpr.edu.br.pw45s.attachments.entity.AttachmentType;
@@ -21,7 +22,7 @@ class AttachmentsControllerTest {
 	@Test
 	void uploadDelegatesToService() {
 		AttachmentsService service = mock(AttachmentsService.class);
-		AttachmentsController controller = new AttachmentsController(service);
+		OrderAttachmentsController controller = new OrderAttachmentsController(service, new AttachmentMapper());
 		UUID orderId = UUID.randomUUID();
 		Attachment attachment = new Attachment(orderId, AttachmentType.OUTRO, "file.txt", "text/plain", 4, "key");
 		MultipartFile file = mock(MultipartFile.class);

@@ -1,5 +1,6 @@
 package com.utfpr.edu.br.pw45s.orders.controller;
 
+import com.utfpr.edu.br.pw45s.orders.dto.OrderMapper;
 import com.utfpr.edu.br.pw45s.orders.dto.OrderResponse;
 import com.utfpr.edu.br.pw45s.orders.dto.OrderStatusHistoryResponse;
 import com.utfpr.edu.br.pw45s.orders.dto.UpdateOrderStatusRequest;
@@ -26,7 +27,7 @@ class OrdersControllerTest {
 	void listReturnsPage() {
 		OrdersService ordersService = mock(OrdersService.class);
 		OrderStatusHistoryService historyService = mock(OrderStatusHistoryService.class);
-		OrdersController controller = new OrdersController(ordersService, historyService);
+		OrdersController controller = new OrdersController(ordersService, historyService, new OrderMapper());
 
 		Order order = new Order(UUID.randomUUID());
 		var page = new PageImpl<>(List.of(order), PageRequest.of(0, 10), 1);
@@ -41,7 +42,7 @@ class OrdersControllerTest {
 	void getByIdReturnsOrder() {
 		OrdersService ordersService = mock(OrdersService.class);
 		OrderStatusHistoryService historyService = mock(OrderStatusHistoryService.class);
-		OrdersController controller = new OrdersController(ordersService, historyService);
+		OrdersController controller = new OrdersController(ordersService, historyService, new OrderMapper());
 
 		UUID id = UUID.randomUUID();
 		Order order = new Order(UUID.randomUUID());
@@ -56,7 +57,7 @@ class OrdersControllerTest {
 	void updateStatusDelegatesToService() {
 		OrdersService ordersService = mock(OrdersService.class);
 		OrderStatusHistoryService historyService = mock(OrderStatusHistoryService.class);
-		OrdersController controller = new OrdersController(ordersService, historyService);
+		OrdersController controller = new OrdersController(ordersService, historyService, new OrderMapper());
 
 		UUID id = UUID.randomUUID();
 		Order order = new Order(UUID.randomUUID());
@@ -72,10 +73,10 @@ class OrdersControllerTest {
 	void historyReturnsList() {
 		OrdersService ordersService = mock(OrdersService.class);
 		OrderStatusHistoryService historyService = mock(OrderStatusHistoryService.class);
-		OrdersController controller = new OrdersController(ordersService, historyService);
+		OrdersController controller = new OrdersController(ordersService, historyService, new OrderMapper());
 
 		UUID id = UUID.randomUUID();
-		var history = List.of(new OrderStatusHistoryResponse("1", OrderStatus.PAGO, OrderStatus.EM_TRANSPORTE, "admin", Instant.now()));
+		var history = List.of(new OrderStatusHistoryResponse(OrderStatus.PAGO, OrderStatus.EM_TRANSPORTE, "admin", Instant.now()));
 		when(historyService.list(id)).thenReturn(history);
 
 		var response = controller.history(id).getBody();

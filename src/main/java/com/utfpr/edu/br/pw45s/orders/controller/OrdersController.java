@@ -5,18 +5,18 @@ import com.utfpr.edu.br.pw45s.orders.dto.OrderMapper;
 import com.utfpr.edu.br.pw45s.orders.dto.OrderResponse;
 import com.utfpr.edu.br.pw45s.orders.dto.OrderStatusHistoryResponse;
 import com.utfpr.edu.br.pw45s.orders.dto.UpdateOrderStatusRequest;
-import com.utfpr.edu.br.pw45s.orders.entity.Order;
 import com.utfpr.edu.br.pw45s.orders.entity.OrderStatus;
 import com.utfpr.edu.br.pw45s.orders.service.OrdersService;
 import com.utfpr.edu.br.pw45s.orders.service.OrderStatusHistoryService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -24,23 +24,37 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
+@Tag(name = "Pedidos")
 @RestController
 @RequestMapping("/orders")
 public class OrdersController {
 	private final OrdersService ordersService;
 	private final OrderStatusHistoryService historyService;
-	private final OrderMapper mapper = new OrderMapper();
+	private final OrderMapper mapper;
 
-	public OrdersController(OrdersService ordersService, OrderStatusHistoryService historyService) {
+	public OrdersController(OrdersService ordersService, OrderStatusHistoryService historyService, OrderMapper mapper) {
 		this.ordersService = ordersService;
 		this.historyService = historyService;
+		this.mapper = mapper;
 	}
 
+	@Operation(summary = "Totalizadores por status", description = "Retorna a contagem de pedidos em cada status. Requer ADMIN ou OPERATOR.")
+	@ApiResponse(responseCode = "200", description = "Mapa de status → quantidade")
+	@PreAuthorize("hasAnyRole('ADMIN','OPERATOR')")
+	@GetMapping("/summary")
+	public ResponseEntity<Map<OrderStatus, Long>> summary() {
+		return ResponseEntity.ok(ordersService.summary());
+	}
+
+	@Operation(summary = "Listar pedidos", description = "Filtros opcionais: status, customerId, dateFrom, dateTo. Requer ADMIN ou OPERATOR.")
+	@ApiResponse(responseCode = "200", description = "Página de pedidos")
 	@PreAuthorize("hasAnyRole('ADMIN','OPERATOR')")
 	@GetMapping
 	public ResponseEntity<PageResponse<OrderResponse>> list(
@@ -50,17 +64,13 @@ public class OrdersController {
 		@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant dateTo,
 		Pageable pageable
 	) {
-		Page<Order> page = ordersService.list(status, customerId, dateFrom, dateTo, pageable);
-		var response = new PageResponse<>(
-			page.map(mapper::toResponse).toList(),
-			page.getNumber(),
-			page.getSize(),
-			page.getTotalElements(),
-			page.getTotalPages()
-		);
-		return ResponseEntity.ok(response);
+		var page = ordersService.list(status, customerId, dateFrom, dateTo, pageable);
+		return ResponseEntity.ok(PageResponse.of(page.map(mapper::toResponse)));
 	}
 
+	@Operation(summary = "Buscar pedido por ID", description = "Requer ADMIN ou OPERATOR.")
+	@ApiResponse(responseCode = "200", description = "Pedido encontrado")
+	@ApiResponse(responseCode = "404", description = "Pedido não encontrado")
 	@PreAuthorize("hasAnyRole('ADMIN','OPERATOR')")
 	@GetMapping("/{id}")
 	public ResponseEntity<OrderResponse> getById(@PathVariable UUID id) {
@@ -69,6 +79,10 @@ public class OrdersController {
 		return ResponseEntity.ok(mapper.toResponse(order));
 	}
 
+	@Operation(summary = "Atualizar status do pedido", description = "Para EM_TRANSPORTE é obrigatório ter nota fiscal PDF anexada. Requer ADMIN ou OPERATOR.")
+	@ApiResponse(responseCode = "200", description = "Status atualizado")
+	@ApiResponse(responseCode = "400", description = "Nota fiscal PDF ausente para EM_TRANSPORTE")
+	@ApiResponse(responseCode = "404", description = "Pedido não encontrado")
 	@PreAuthorize("hasAnyRole('ADMIN','OPERATOR')")
 	@PutMapping("/{id}/status")
 	public ResponseEntity<OrderResponse> updateStatus(
@@ -79,6 +93,8 @@ public class OrdersController {
 		return ResponseEntity.status(HttpStatus.OK).body(mapper.toResponse(order));
 	}
 
+	@Operation(summary = "Histórico de status", description = "Lista todas as mudanças de status de um pedido. Requer ADMIN ou OPERATOR.")
+	@ApiResponse(responseCode = "200", description = "Lista de entradas do histórico")
 	@PreAuthorize("hasAnyRole('ADMIN','OPERATOR')")
 	@GetMapping("/{id}/history")
 	public ResponseEntity<List<OrderStatusHistoryResponse>> history(@PathVariable UUID id) {

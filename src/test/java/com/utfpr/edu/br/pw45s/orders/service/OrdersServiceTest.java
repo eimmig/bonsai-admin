@@ -3,7 +3,6 @@ package com.utfpr.edu.br.pw45s.orders.service;
 import com.utfpr.edu.br.pw45s.attachments.entity.AttachmentType;
 import com.utfpr.edu.br.pw45s.attachments.repository.AttachmentRepository;
 import com.utfpr.edu.br.pw45s.audit.service.AuditService;
-import com.utfpr.edu.br.pw45s.notifications.service.EmailLogService;
 import com.utfpr.edu.br.pw45s.notifications.service.NotificationsService;
 import com.utfpr.edu.br.pw45s.orders.entity.Order;
 import com.utfpr.edu.br.pw45s.orders.entity.OrderStatus;
@@ -50,9 +49,6 @@ class OrdersServiceTest {
 
 	@Mock
 	private NotificationsService notificationsService;
-
-	@Mock
-	private EmailLogService emailLogService;
 
 	@Mock
 	private AuditService auditService;
@@ -109,9 +105,9 @@ class OrdersServiceTest {
 		Order updated = ordersService.updateStatus(orderId, OrderStatus.EM_TRANSPORTE);
 
 		assertEquals(OrderStatus.EM_TRANSPORTE, updated.getStatus());
-		verify(historyService).record(eq(orderId), eq(OrderStatus.AGUARDANDO_PAGAMENTO), eq(OrderStatus.EM_TRANSPORTE), any());
+		verify(historyService).registerEntry(eq(orderId), eq(OrderStatus.AGUARDANDO_PAGAMENTO), eq(OrderStatus.EM_TRANSPORTE), any());
 		verify(auditService).log(eq("ORDER"), eq(orderId), eq("STATUS_CHANGE"), any());
-		verify(emailLogService).logSent(eq(orderId), eq("user@example.com"), any());
+		verify(notificationsService).sendStatusChangeEmail(eq("user@example.com"), any(), eq(OrderStatus.AGUARDANDO_PAGAMENTO), eq(OrderStatus.EM_TRANSPORTE));
 	}
 
 	@Test
@@ -131,7 +127,7 @@ class OrdersServiceTest {
 		Order updated = ordersService.updateStatus(orderId, OrderStatus.EM_TRANSPORTE);
 
 		assertNotNull(updated);
-		verify(emailLogService).logFailed(eq(orderId), eq("user@example.com"), any(), eq("fail"));
+		assertEquals(OrderStatus.EM_TRANSPORTE, updated.getStatus());
 	}
 
 	@Test

@@ -10,12 +10,17 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.DisabledException;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -33,6 +38,20 @@ class AuthServiceTest {
 
 	@InjectMocks
 	private AuthService authService;
+
+	@Test
+	void loginFailsWhenAuthenticationThrows() {
+		doThrow(new DisabledException("User is disabled"))
+			.when(authenticationManager).authenticate(any());
+
+		var request = new LoginRequest("inactive@example.com", "pass");
+		ResponseStatusException ex = assertThrows(
+			ResponseStatusException.class,
+			() -> authService.login(request)
+		);
+
+		assertEquals(HttpStatus.UNAUTHORIZED, ex.getStatusCode());
+	}
 
 	@Test
 	void loginReturnsTokenAndUserInfo() {

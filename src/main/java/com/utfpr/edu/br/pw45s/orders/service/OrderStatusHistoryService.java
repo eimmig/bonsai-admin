@@ -21,7 +21,7 @@ public class OrderStatusHistoryService {
 	}
 
 	@Transactional(propagation = Propagation.REQUIRES_NEW)
-	public void record(UUID orderId, OrderStatus from, OrderStatus to, String actor) {
+	public void registerEntry(UUID orderId, OrderStatus from, OrderStatus to, String actor) {
 		repository.save(new OrderStatusHistoryDocument(orderId, from, to, actor, Instant.now()));
 	}
 
@@ -29,7 +29,6 @@ public class OrderStatusHistoryService {
 	public List<OrderStatusHistoryResponse> list(UUID orderId) {
 		return repository.findByOrderIdOrderByChangedAtDesc(orderId).stream()
 			.map(h -> new OrderStatusHistoryResponse(
-				h.getId(),
 				h.getFromStatus(),
 				h.getToStatus(),
 				h.getChangedBy(),

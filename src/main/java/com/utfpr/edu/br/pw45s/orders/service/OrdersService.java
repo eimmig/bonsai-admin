@@ -4,7 +4,6 @@ import com.utfpr.edu.br.pw45s.shared.base.service.BaseCrudServiceImpl;
 import com.utfpr.edu.br.pw45s.attachments.entity.AttachmentType;
 import com.utfpr.edu.br.pw45s.attachments.repository.AttachmentRepository;
 import com.utfpr.edu.br.pw45s.audit.service.AuditService;
-import com.utfpr.edu.br.pw45s.notifications.service.EmailLogService;
 import com.utfpr.edu.br.pw45s.notifications.service.NotificationsService;
 import com.utfpr.edu.br.pw45s.orders.entity.Order;
 import com.utfpr.edu.br.pw45s.orders.entity.OrderStatus;
@@ -17,20 +16,24 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Instant;
+import java.util.EnumMap;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
 public class OrdersService extends BaseCrudServiceImpl<Order, UUID, OrderRepository> {
+	private static final Logger log = LoggerFactory.getLogger(OrdersService.class);
 	private static final String PDF_MIME = "application/pdf";
 	private final AttachmentRepository attachmentRepository;
 	private final UserRepository userRepository;
 	private final NotificationsService notificationsService;
-	private final EmailLogService emailLogService;
 	private final AuditService auditService;
 	private final OrderStatusHistoryService historyService;
 
@@ -39,7 +42,6 @@ public class OrdersService extends BaseCrudServiceImpl<Order, UUID, OrderReposit
 		AttachmentRepository attachmentRepository,
 		UserRepository userRepository,
 		NotificationsService notificationsService,
-		EmailLogService emailLogService,
 		AuditService auditService,
 		OrderStatusHistoryService historyService
 	) {
@@ -47,9 +49,17 @@ public class OrdersService extends BaseCrudServiceImpl<Order, UUID, OrderReposit
 		this.attachmentRepository = attachmentRepository;
 		this.userRepository = userRepository;
 		this.notificationsService = notificationsService;
-		this.emailLogService = emailLogService;
 		this.auditService = auditService;
 		this.historyService = historyService;
+	}
+
+	@Transactional(readOnly = true)
+	public Map<OrderStatus, Long> summary() {
+		Map<OrderStatus, Long> counts = new EnumMap<>(OrderStatus.class);
+		for (OrderStatus s : OrderStatus.values()) counts.put(s, 0L);
+		repository.countGroupedByStatus()
+			.forEach(row -> counts.put((OrderStatus) row[0], (Long) row[1]));
+		return counts;
 	}
 
 	@Transactional(readOnly = true)
@@ -64,7 +74,10 @@ public class OrdersService extends BaseCrudServiceImpl<Order, UUID, OrderReposit
 	@Transactional
 	public Order updateStatus(UUID id, OrderStatus status) {
 		Order order = repository.findById(id)
-			.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found"));
+			.orElseThrow(() -> {
+				log.warn("Order not found: {}", id);
+				return new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found");
+			});
 		OrderStatus from = order.getStatus();
 		if (status == OrderStatus.EM_TRANSPORTE) {
 			boolean hasInvoice = attachmentRepository.existsByOrderIdAndTypeAndMimeType(
@@ -73,6 +86,7 @@ public class OrdersService extends BaseCrudServiceImpl<Order, UUID, OrderReposit
 				PDF_MIME
 			);
 			if (!hasInvoice) {
+				log.warn("Status update rejected — nota fiscal PDF missing for order {}", id);
 				throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Nota fiscal PDF required");
 			}
 		}
@@ -80,7 +94,8 @@ public class OrdersService extends BaseCrudServiceImpl<Order, UUID, OrderReposit
 		Order saved = repository.save(order);
 
 		String actor = resolveActor();
-		historyService.record(saved.getId(), from, status, actor);
+		log.info("Order {} status updated: {} → {} by {}", saved.getId(), from.getLabel(), status.getLabel(), actor);
+		historyService.registerEntry(saved.getId(), from, status, actor);
 		auditService.log("ORDER", saved.getId(), "STATUS_CHANGE", "from=" + from + ", to=" + status + ", by=" + actor);
 		sendStatusEmail(saved, from, status);
 		return saved;
@@ -89,15 +104,14 @@ public class OrdersService extends BaseCrudServiceImpl<Order, UUID, OrderReposit
 	private void sendStatusEmail(Order order, OrderStatus from, OrderStatus to) {
 		var user = userRepository.findById(order.getCustomerId());
 		if (user.isEmpty()) {
+			log.warn("Customer {} not found for order {} — skipping status email", order.getCustomerId(), order.getId());
 			return;
 		}
 		String email = user.get().getEmail();
-		String subject = "Atualizacao do pedido " + order.getId();
 		try {
 			notificationsService.sendStatusChangeEmail(email, order, from, to);
-			emailLogService.logSent(order.getId(), email, subject);
 		} catch (Exception ex) {
-			emailLogService.logFailed(order.getId(), email, subject, ex.getMessage());
+			log.warn("Status email failed for order {} to {}: {}", order.getId(), email, ex.getMessage());
 		}
 	}
 

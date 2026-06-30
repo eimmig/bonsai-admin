@@ -58,6 +58,18 @@ services:
     depends_on:
       - elasticsearch
 
+  logstash:
+    image: docker.elastic.co/logstash/logstash:9.2.8
+    container_name: pw45s-logstash
+    environment:
+      - xpack.monitoring.enabled=false
+    volumes:
+      - ./observability/logstash/pipeline:/usr/share/logstash/pipeline:ro
+    ports:
+      - "5044:5044"
+    depends_on:
+      - elasticsearch
+
   prometheus:
     image: prom/prometheus:latest
     container_name: pw45s-prometheus

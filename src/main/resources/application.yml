@@ -32,6 +32,11 @@ minio:
   secret-key: ${MINIO_SECRET_KEY:minioadmin}
   bucket: ${MINIO_BUCKET:pw45s}
 
+logging:
+  logstash:
+    host: localhost
+    port: 5044
+
 management:
   endpoints:
     web:

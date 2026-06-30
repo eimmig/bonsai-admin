@@ -5,6 +5,8 @@ import com.utfpr.edu.br.pw45s.users.entity.RoleName;
 import com.utfpr.edu.br.pw45s.users.entity.User;
 import com.utfpr.edu.br.pw45s.users.repository.RoleRepository;
 import com.utfpr.edu.br.pw45s.users.repository.UserRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
@@ -18,6 +20,8 @@ import java.util.UUID;
 
 @Service
 public class UsersService extends BaseCrudServiceImpl<User, UUID, UserRepository> {
+	private static final Logger log = LoggerFactory.getLogger(UsersService.class);
+
 	private final PasswordEncoder passwordEncoder;
 	private final RoleRepository roleRepository;
 
@@ -30,18 +34,23 @@ public class UsersService extends BaseCrudServiceImpl<User, UUID, UserRepository
 	@Transactional
 	public User register(String email, String rawPassword) {
 		if (repository.existsByEmail(email)) {
+			log.warn("Registration rejected — email already in use: {}", email);
 			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Email already registered");
 		}
 		String hash = passwordEncoder.encode(rawPassword);
 		User user = new User(email, hash);
-		return repository.save(user);
+		User saved = repository.save(user);
+		log.info("User registered: {}", email);
+		return saved;
 	}
 
 	@Transactional
 	public User activate(UUID id) {
 		User user = getByIdOrThrow(id);
 		user.activate();
-		return repository.save(user);
+		User saved = repository.save(user);
+		log.info("User activated: {}", id);
+		return saved;
 	}
 
 	@Transactional
@@ -55,10 +64,11 @@ public class UsersService extends BaseCrudServiceImpl<User, UUID, UserRepository
 
 		user.getRoles().clear();
 		user.getRoles().addAll(roleEntities);
-		return repository.save(user);
+		User saved = repository.save(user);
+		log.info("Roles {} assigned to user {}", roles, id);
+		return saved;
 	}
 
-	@Override
 	public Page<User> findAll(Pageable pageable) {
 		return repository.findAll(pageable);
 	}

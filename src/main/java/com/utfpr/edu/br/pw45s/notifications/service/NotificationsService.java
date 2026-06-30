@@ -1,15 +1,20 @@
 package com.utfpr.edu.br.pw45s.notifications.service;
 
+import com.utfpr.edu.br.pw45s.notifications.exception.EmailSendingException;
 import com.utfpr.edu.br.pw45s.orders.entity.Order;
 import com.utfpr.edu.br.pw45s.orders.entity.OrderStatus;
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
 
 @Service
 public class NotificationsService {
+	private static final Logger log = LoggerFactory.getLogger(NotificationsService.class);
+
 	private final JavaMailSender mailSender;
 
 	public NotificationsService(JavaMailSender mailSender) {
@@ -17,17 +22,19 @@ public class NotificationsService {
 	}
 
 	public void sendStatusChangeEmail(String toEmail, Order order, OrderStatus from, OrderStatus to) {
+		String subject = "Atualização do pedido #" + order.getId();
 		try {
 			MimeMessage message = mailSender.createMimeMessage();
 			MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
-			
 			helper.setTo(toEmail);
-			helper.setSubject("Atualização do pedido #" + order.getId());
+			helper.setSubject(subject);
 			helper.setText(buildHtmlBody(order, from, to), true);
-			
 			mailSender.send(message);
+			log.info("Status change email sent to {} for order {} ({} → {})",
+				toEmail, order.getId(), from.getLabel(), to.getLabel());
 		} catch (MessagingException e) {
-			throw new RuntimeException("Erro ao enviar email", e);
+			log.error("Failed to send email to {} for order {}: {}", toEmail, order.getId(), e.getMessage(), e);
+			throw new EmailSendingException(toEmail, subject, e);
 		}
 	}
 
@@ -138,7 +145,7 @@ public class NotificationsService {
 						
 						<div class="order-details">
 							<div class="detail-row">
-								<span class="detail-label">Número do Pedido:</span> #%s
+								<span class="detail-label">Código do Pedido:</span> #%s
 							</div>
 							<div class="detail-row">
 								<span class="detail-label">Status Atual:</span> %s
@@ -156,6 +163,6 @@ public class NotificationsService {
 				</div>
 			</body>
 			</html>
-			""".formatted(from, to, order.getId(), to);
+			""".formatted(from.getLabel(), to.getLabel(), order.getId(), to.getLabel());
 	}
 }

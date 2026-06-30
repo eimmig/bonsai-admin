@@ -31,7 +31,7 @@ class OrderStatusHistoryServiceTest {
 	@Test
 	void recordSavesDocument() {
 		UUID orderId = UUID.randomUUID();
-		service.record(orderId, OrderStatus.PAGO, OrderStatus.EM_TRANSPORTE, "admin");
+		service.registerEntry(orderId, OrderStatus.PAGO, OrderStatus.EM_TRANSPORTE, "admin");
 
 		verify(repository).save(any(OrderStatusHistoryDocument.class));
 	}

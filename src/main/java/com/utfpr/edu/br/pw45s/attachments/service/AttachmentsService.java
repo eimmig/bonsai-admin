@@ -10,6 +10,8 @@ import io.minio.MinioClient;
 import io.minio.PutObjectArgs;
 import io.minio.BucketExistsArgs;
 import io.minio.MakeBucketArgs;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,7 +23,9 @@ import java.util.UUID;
 
 @Service
 public class AttachmentsService {
+	private static final Logger log = LoggerFactory.getLogger(AttachmentsService.class);
 	private static final String PDF_MIME = "application/pdf";
+	private static final long MAX_FILE_SIZE = 10L * 1024 * 1024;
 
 	private final AttachmentRepository attachmentRepository;
 	private final OrderRepository orderRepository;
@@ -57,6 +61,7 @@ public class AttachmentsService {
 					.build()
 			);
 		} catch (Exception ex) {
+			log.error("Failed to upload file to MinIO for order {}: {}", orderId, ex.getMessage(), ex);
 			throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to upload file", ex);
 		}
 
@@ -68,36 +73,52 @@ public class AttachmentsService {
 			file.getSize(),
 			storageKey
 		);
-		return attachmentRepository.save(attachment);
+		Attachment saved = attachmentRepository.save(attachment);
+		log.info("File uploaded: {} ({}) for order {}", file.getOriginalFilename(), type, orderId);
+		return saved;
 	}
 
 	@Transactional(readOnly = true)
 	public InputStream download(UUID attachmentId) {
 		Attachment attachment = attachmentRepository.findById(attachmentId)
-			.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Attachment not found"));
+			.orElseThrow(() -> {
+				log.warn("Download rejected — attachment not found: {}", attachmentId);
+				return new ResponseStatusException(HttpStatus.NOT_FOUND, "Attachment not found");
+			});
 		try {
-			return minioClient.getObject(
+			InputStream stream = minioClient.getObject(
 				GetObjectArgs.builder()
 					.bucket(properties.bucket())
 					.object(attachment.getStorageKey())
 					.build()
 			);
+			log.info("File downloaded: attachment {}", attachmentId);
+			return stream;
 		} catch (Exception ex) {
+			log.error("Failed to download file {} from MinIO: {}", attachmentId, ex.getMessage(), ex);
 			throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to download file", ex);
 		}
 	}
 
 	private void validateOrder(UUID orderId) {
 		if (!orderRepository.existsById(orderId)) {
+			log.warn("Upload rejected — order not found: {}", orderId);
 			throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found");
 		}
 	}
 
 	private void validateFile(AttachmentType type, MultipartFile file) {
 		if (file == null || file.isEmpty()) {
+			log.warn("Upload rejected — file is empty or null");
 			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "File is required");
 		}
+		if (file.getSize() > MAX_FILE_SIZE) {
+			log.warn("Upload rejected — file size {} bytes exceeds 10 MB limit", file.getSize());
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+				"File size exceeds the 10 MB limit");
+		}
 		if (type == AttachmentType.NOTA_FISCAL && !PDF_MIME.equals(file.getContentType())) {
+			log.warn("Upload rejected — NOTA_FISCAL must be PDF, got: {}", file.getContentType());
 			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "NOTA_FISCAL must be a PDF");
 		}
 	}
