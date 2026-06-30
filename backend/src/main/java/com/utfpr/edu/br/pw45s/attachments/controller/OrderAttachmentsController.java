@@ -10,6 +10,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.constraints.NotNull;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -17,6 +18,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.List;
 import java.util.UUID;
 
 @Tag(name = "Anexos")
@@ -29,6 +31,15 @@ public class OrderAttachmentsController {
 	public OrderAttachmentsController(AttachmentsService attachmentsService, AttachmentMapper mapper) {
 		this.attachmentsService = attachmentsService;
 		this.mapper = mapper;
+	}
+
+	@Operation(summary = "Listar anexos do pedido", description = "Retorna todos os anexos associados ao pedido. Requer ADMIN ou OPERATOR.")
+	@ApiResponse(responseCode = "200", description = "Lista de anexos")
+	@PreAuthorize("hasAnyRole('ADMIN','OPERATOR')")
+	@GetMapping("/{orderId}/attachments")
+	public ResponseEntity<List<AttachmentResponse>> list(@PathVariable UUID orderId) {
+		var attachments = attachmentsService.listByOrder(orderId);
+		return ResponseEntity.ok(attachments.stream().map(mapper::toResponse).toList());
 	}
 
 	@Operation(summary = "Fazer upload de anexo", description = "Envia arquivo para o MinIO e associa ao pedido. Para NOTA_FISCAL o arquivo deve ser PDF. Requer ADMIN ou OPERATOR.")

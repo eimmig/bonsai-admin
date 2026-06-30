@@ -9,6 +9,7 @@ import java.util.UUID;
 public record OrderResponse(
 	UUID id,
 	UUID customerId,
+	String customerEmail,
 	OrderStatus status,
 	Instant createdAt,
 	Instant updatedAt,

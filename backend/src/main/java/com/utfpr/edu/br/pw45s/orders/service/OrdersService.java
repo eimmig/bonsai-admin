@@ -24,6 +24,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Instant;
 import java.util.EnumMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -51,6 +52,11 @@ public class OrdersService extends BaseCrudServiceImpl<Order, UUID, OrderReposit
 		this.notificationsService = notificationsService;
 		this.auditService = auditService;
 		this.historyService = historyService;
+	}
+
+	@Transactional(readOnly = true)
+	public List<UUID> listCustomerIds() {
+		return repository.findDistinctCustomerIds();
 	}
 
 	@Transactional(readOnly = true)

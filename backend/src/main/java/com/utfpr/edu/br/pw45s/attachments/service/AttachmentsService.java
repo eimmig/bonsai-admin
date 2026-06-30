@@ -19,6 +19,7 @@ import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.io.InputStream;
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -76,6 +77,11 @@ public class AttachmentsService {
 		Attachment saved = attachmentRepository.save(attachment);
 		log.info("File uploaded: {} ({}) for order {}", file.getOriginalFilename(), type, orderId);
 		return saved;
+	}
+
+	@Transactional(readOnly = true)
+	public List<Attachment> listByOrder(UUID orderId) {
+		return attachmentRepository.findByOrderId(orderId);
 	}
 
 	@Transactional(readOnly = true)

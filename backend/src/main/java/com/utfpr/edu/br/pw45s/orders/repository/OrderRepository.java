@@ -18,6 +18,9 @@ public interface OrderRepository extends JpaRepository<Order, UUID>, JpaSpecific
     @Query("SELECT o.status, COUNT(o) FROM Order o GROUP BY o.status")
     List<Object[]> countGroupedByStatus();
 
+    @Query("SELECT DISTINCT o.customerId FROM Order o")
+    List<UUID> findDistinctCustomerIds();
+
     @Override
     @EntityGraph(attributePaths = {"items"})
     Page<Order> findAll(Specification<Order> spec, Pageable pageable);

@@ -8,6 +8,8 @@ import com.utfpr.edu.br.pw45s.orders.entity.Order;
 import com.utfpr.edu.br.pw45s.orders.entity.OrderStatus;
 import com.utfpr.edu.br.pw45s.orders.service.OrderStatusHistoryService;
 import com.utfpr.edu.br.pw45s.orders.service.OrdersService;
+import com.utfpr.edu.br.pw45s.users.repository.UserRepository;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -23,11 +25,19 @@ import static org.mockito.Mockito.when;
 
 class OrdersControllerTest {
 
+	private OrderMapper orderMapper;
+
+	@BeforeEach
+	void setUp() {
+		UserRepository userRepository = mock(UserRepository.class);
+		orderMapper = new OrderMapper(userRepository);
+	}
+
 	@Test
 	void listReturnsPage() {
 		OrdersService ordersService = mock(OrdersService.class);
 		OrderStatusHistoryService historyService = mock(OrderStatusHistoryService.class);
-		OrdersController controller = new OrdersController(ordersService, historyService, new OrderMapper());
+		OrdersController controller = new OrdersController(ordersService, historyService, orderMapper);
 
 		Order order = new Order(UUID.randomUUID());
 		var page = new PageImpl<>(List.of(order), PageRequest.of(0, 10), 1);
@@ -42,7 +52,7 @@ class OrdersControllerTest {
 	void getByIdReturnsOrder() {
 		OrdersService ordersService = mock(OrdersService.class);
 		OrderStatusHistoryService historyService = mock(OrderStatusHistoryService.class);
-		OrdersController controller = new OrdersController(ordersService, historyService, new OrderMapper());
+		OrdersController controller = new OrdersController(ordersService, historyService, orderMapper);
 
 		UUID id = UUID.randomUUID();
 		Order order = new Order(UUID.randomUUID());
@@ -57,7 +67,7 @@ class OrdersControllerTest {
 	void updateStatusDelegatesToService() {
 		OrdersService ordersService = mock(OrdersService.class);
 		OrderStatusHistoryService historyService = mock(OrderStatusHistoryService.class);
-		OrdersController controller = new OrdersController(ordersService, historyService, new OrderMapper());
+		OrdersController controller = new OrdersController(ordersService, historyService, orderMapper);
 
 		UUID id = UUID.randomUUID();
 		Order order = new Order(UUID.randomUUID());
@@ -73,7 +83,7 @@ class OrdersControllerTest {
 	void historyReturnsList() {
 		OrdersService ordersService = mock(OrdersService.class);
 		OrderStatusHistoryService historyService = mock(OrderStatusHistoryService.class);
-		OrdersController controller = new OrdersController(ordersService, historyService, new OrderMapper());
+		OrdersController controller = new OrdersController(ordersService, historyService, orderMapper);
 
 		UUID id = UUID.randomUUID();
 		var history = List.of(new OrderStatusHistoryResponse(OrderStatus.PAGO, OrderStatus.EM_TRANSPORTE, "admin", Instant.now()));

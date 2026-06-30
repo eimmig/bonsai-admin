@@ -45,6 +45,14 @@ public class OrdersController {
 		this.mapper = mapper;
 	}
 
+	@Operation(summary = "IDs de clientes com pedidos", description = "Retorna lista de UUIDs distintos de clientes que possuem pelo menos um pedido. Requer ADMIN ou OPERATOR.")
+	@ApiResponse(responseCode = "200", description = "Lista de UUIDs")
+	@PreAuthorize("hasAnyRole('ADMIN','OPERATOR')")
+	@GetMapping("/customers")
+	public ResponseEntity<List<UUID>> customers() {
+		return ResponseEntity.ok(ordersService.listCustomerIds());
+	}
+
 	@Operation(summary = "Totalizadores por status", description = "Retorna a contagem de pedidos em cada status. Requer ADMIN ou OPERATOR.")
 	@ApiResponse(responseCode = "200", description = "Mapa de status → quantidade")
 	@PreAuthorize("hasAnyRole('ADMIN','OPERATOR')")
