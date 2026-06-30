@@ -36,3 +36,7 @@ build/
 .env.local
 src/main/resources/application-local.yml
 src/main/resources/application-local.properties
+
+### Postman ###
+postman/environments/
+*.postman_environment.json

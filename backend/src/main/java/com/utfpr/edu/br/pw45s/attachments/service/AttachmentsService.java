@@ -1,6 +1,8 @@
 package com.utfpr.edu.br.pw45s.attachments.service;
 
 import com.utfpr.edu.br.pw45s.attachments.config.MinioProperties;
+import com.utfpr.edu.br.pw45s.attachments.dto.AttachmentMapper;
+import com.utfpr.edu.br.pw45s.attachments.dto.AttachmentResponse;
 import com.utfpr.edu.br.pw45s.attachments.entity.Attachment;
 import com.utfpr.edu.br.pw45s.attachments.entity.AttachmentType;
 import com.utfpr.edu.br.pw45s.attachments.repository.AttachmentRepository;
@@ -19,6 +21,7 @@ import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.io.InputStream;
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -31,17 +34,20 @@ public class AttachmentsService {
 	private final OrderRepository orderRepository;
 	private final MinioClient minioClient;
 	private final MinioProperties properties;
+	private final AttachmentMapper mapper;
 
 	public AttachmentsService(
 		AttachmentRepository attachmentRepository,
 		OrderRepository orderRepository,
 		MinioClient minioClient,
-		MinioProperties properties
+		MinioProperties properties,
+		AttachmentMapper mapper
 	) {
 		this.attachmentRepository = attachmentRepository;
 		this.orderRepository = orderRepository;
 		this.minioClient = minioClient;
 		this.properties = properties;
+		this.mapper = mapper;
 	}
 
 	@Transactional
@@ -76,6 +82,13 @@ public class AttachmentsService {
 		Attachment saved = attachmentRepository.save(attachment);
 		log.info("File uploaded: {} ({}) for order {}", file.getOriginalFilename(), type, orderId);
 		return saved;
+	}
+
+	@Transactional(readOnly = true)
+	public List<AttachmentResponse> listByOrder(UUID orderId) {
+		return attachmentRepository.findByOrderId(orderId).stream()
+			.map(mapper::toResponse)
+			.toList();
 	}
 
 	@Transactional(readOnly = true)

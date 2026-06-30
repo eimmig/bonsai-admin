@@ -14,10 +14,13 @@ import org.springframework.data.domain.PageRequest;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anySet;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -32,6 +35,7 @@ class OrdersControllerTest {
 		Order order = new Order(UUID.randomUUID());
 		var page = new PageImpl<>(List.of(order), PageRequest.of(0, 10), 1);
 		when(ordersService.list(null, null, null, null, PageRequest.of(0, 10))).thenReturn(page);
+		when(ordersService.resolveCustomerEmails(anySet())).thenReturn(Map.of());
 
 		var response = controller.list(null, null, null, null, PageRequest.of(0, 10)).getBody();
 
@@ -47,6 +51,7 @@ class OrdersControllerTest {
 		UUID id = UUID.randomUUID();
 		Order order = new Order(UUID.randomUUID());
 		when(ordersService.findById(id)).thenReturn(Optional.of(order));
+		when(ordersService.resolveCustomerEmail(any())).thenReturn(null);
 
 		OrderResponse response = controller.getById(id).getBody();
 
@@ -63,6 +68,7 @@ class OrdersControllerTest {
 		Order order = new Order(UUID.randomUUID());
 		order.changeStatus(OrderStatus.PAGO);
 		when(ordersService.updateStatus(id, OrderStatus.PAGO)).thenReturn(order);
+		when(ordersService.resolveCustomerEmail(any())).thenReturn(null);
 
 		var response = controller.updateStatus(id, new UpdateOrderStatusRequest(OrderStatus.PAGO));
 
@@ -82,5 +88,22 @@ class OrdersControllerTest {
 		var response = controller.history(id).getBody();
 
 		assertEquals(1, response.size());
+	}
+
+	@Test
+	void customersReturnsPaginatedIds() {
+		OrdersService ordersService = mock(OrdersService.class);
+		OrderStatusHistoryService historyService = mock(OrderStatusHistoryService.class);
+		OrdersController controller = new OrdersController(ordersService, historyService, new OrderMapper());
+
+		UUID customerId = UUID.randomUUID();
+		var pageable = PageRequest.of(0, 10);
+		var page = new PageImpl<>(List.of(customerId), pageable, 1);
+		when(ordersService.listCustomerIds(pageable)).thenReturn(page);
+
+		var response = controller.customers(pageable).getBody();
+
+		assertEquals(1, response.totalElements());
+		assertEquals(customerId, response.content().get(0));
 	}
 }

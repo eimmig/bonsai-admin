@@ -9,7 +9,8 @@ import com.utfpr.edu.br.pw45s.orders.entity.Order;
 import com.utfpr.edu.br.pw45s.orders.entity.OrderStatus;
 import com.utfpr.edu.br.pw45s.orders.repository.OrderRepository;
 import com.utfpr.edu.br.pw45s.orders.repository.OrderSpecifications;
-import com.utfpr.edu.br.pw45s.users.repository.UserRepository;
+import com.utfpr.edu.br.pw45s.customers.entity.Customer;
+import com.utfpr.edu.br.pw45s.customers.repository.CustomerRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
@@ -25,14 +26,16 @@ import org.springframework.web.server.ResponseStatusException;
 import java.time.Instant;
 import java.util.EnumMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 public class OrdersService extends BaseCrudServiceImpl<Order, UUID, OrderRepository> {
 	private static final Logger log = LoggerFactory.getLogger(OrdersService.class);
 	private static final String PDF_MIME = "application/pdf";
 	private final AttachmentRepository attachmentRepository;
-	private final UserRepository userRepository;
+	private final CustomerRepository customerRepository;
 	private final NotificationsService notificationsService;
 	private final AuditService auditService;
 	private final OrderStatusHistoryService historyService;
@@ -40,17 +43,37 @@ public class OrdersService extends BaseCrudServiceImpl<Order, UUID, OrderReposit
 	public OrdersService(
 		OrderRepository repository,
 		AttachmentRepository attachmentRepository,
-		UserRepository userRepository,
+		CustomerRepository customerRepository,
 		NotificationsService notificationsService,
 		AuditService auditService,
 		OrderStatusHistoryService historyService
 	) {
 		super(repository);
 		this.attachmentRepository = attachmentRepository;
-		this.userRepository = userRepository;
+		this.customerRepository = customerRepository;
 		this.notificationsService = notificationsService;
 		this.auditService = auditService;
 		this.historyService = historyService;
+	}
+
+	@Transactional(readOnly = true)
+	public Page<UUID> listCustomerIds(Pageable pageable) {
+		return repository.findDistinctCustomerIds(pageable);
+	}
+
+	@Transactional(readOnly = true)
+	public String resolveCustomerEmail(UUID customerId) {
+		var customer = customerRepository.findById(customerId);
+		if (customer.isEmpty()) {
+			log.warn("Customer {} not found — email will be null in response", customerId);
+		}
+		return customer.map(Customer::getEmail).orElse(null);
+	}
+
+	@Transactional(readOnly = true)
+	public Map<UUID, String> resolveCustomerEmails(Set<UUID> customerIds) {
+		return customerRepository.findAllById(customerIds).stream()
+			.collect(Collectors.toMap(Customer::getId, Customer::getEmail));
 	}
 
 	@Transactional(readOnly = true)
@@ -102,12 +125,12 @@ public class OrdersService extends BaseCrudServiceImpl<Order, UUID, OrderReposit
 	}
 
 	private void sendStatusEmail(Order order, OrderStatus from, OrderStatus to) {
-		var user = userRepository.findById(order.getCustomerId());
-		if (user.isEmpty()) {
+		var customer = customerRepository.findById(order.getCustomerId());
+		if (customer.isEmpty()) {
 			log.warn("Customer {} not found for order {} — skipping status email", order.getCustomerId(), order.getId());
 			return;
 		}
-		String email = user.get().getEmail();
+		String email = customer.get().getEmail();
 		try {
 			notificationsService.sendStatusChangeEmail(email, order, from, to);
 		} catch (Exception ex) {

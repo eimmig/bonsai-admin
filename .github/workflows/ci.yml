@@ -10,6 +10,9 @@ jobs:
   build-and-test:
     name: Build, Test & Coverage (>= 80%)
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
 
     steps:
       - name: Checkout do código
@@ -35,7 +38,7 @@ jobs:
         uses: dorny/test-reporter@v1
         with:
           name: JUnit Tests
-          path: target/surefire-reports/*.xml
+          path: backend/target/surefire-reports/*.xml
           reporter: java-junit
           fail-on-error: true
 
@@ -44,14 +47,16 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: jacoco-report
-          path: target/site/jacoco/
+          path: backend/target/site/jacoco/
           if-no-files-found: warn
 
   security-scan:
     name: Scan de Vulnerabilidades (OWASP)
     runs-on: ubuntu-latest
-    # Roda em paralelo com build-and-test para não bloquear o pipeline
     needs: []
+    defaults:
+      run:
+        working-directory: backend
 
     steps:
       - name: Checkout do código
@@ -67,12 +72,23 @@ jobs:
       - name: Garantir permissão de execução do mvnw
         run: chmod +x ./mvnw
 
+      - name: Cache banco de dados NVD (OWASP)
+        uses: actions/cache@v4
+        with:
+          path: ~/.dependency-check/data
+          key: owasp-nvd-${{ runner.os }}-${{ github.run_id }}
+          restore-keys: |
+            owasp-nvd-${{ runner.os }}-
+
       - name: OWASP Dependency Check
+        env:
+          NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
         run: >
           ./mvnw -B -ntp
           org.owasp:dependency-check-maven:check
           -DfailBuildOnCVSS=7
-          -DsuppressionFile=.github/owasp-suppressions.xml
+          -DsuppressionFile=${{ github.workspace }}/.github/owasp-suppressions.xml
+          -DnvdApiKey=$NVD_API_KEY
         continue-on-error: false
 
       - name: Publicar relatório OWASP
@@ -80,7 +96,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: owasp-report
-          path: target/dependency-check-report.html
+          path: backend/target/dependency-check-report.html
           if-no-files-found: warn
 
   codeql:
@@ -90,6 +106,9 @@ jobs:
       security-events: write
       actions: read
       contents: read
+    defaults:
+      run:
+        working-directory: backend
 
     steps:
       - name: Checkout do código

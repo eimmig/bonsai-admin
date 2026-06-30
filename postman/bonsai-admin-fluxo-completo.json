@@ -1,0 +1,374 @@
+{
+  "info": {
+    "name": "Bonsai Admin — Fluxo Completo",
+    "description": "Executa em sequência um ciclo completo: autenticação → gestão de usuários → pedidos → upload de nota fiscal → mudança de status → download. Cada requisição salva variáveis automaticamente para a próxima.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl",      "value": "http://localhost:8080" },
+    { "key": "adminToken",   "value": "" },
+    { "key": "newUserId",    "value": "" },
+    { "key": "orderId",      "value": "" },
+    { "key": "attachmentId", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "01 — Login como admin",
+      "event": [{
+        "listen": "test",
+        "script": {
+          "exec": [
+            "const json = pm.response.json();",
+            "pm.collectionVariables.set('adminToken', json.token);",
+            "pm.test('Login retornou token', () => pm.expect(json.token).to.be.a('string'));"
+          ]
+        }
+      }],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": { "raw": "{{baseUrl}}/auth/login", "host": ["{{baseUrl}}"], "path": ["auth","login"] },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"admin@utfpr.edu.br\",\n  \"password\": \"admin1\"\n}"
+        }
+      }
+    },
+    {
+      "name": "02 — Registrar novo operador",
+      "event": [{
+        "listen": "test",
+        "script": {
+          "exec": [
+            "const json = pm.response.json();",
+            "pm.collectionVariables.set('newUserId', json.id);",
+            "pm.test('Usuário criado com id', () => pm.expect(json.id).to.be.a('string'));",
+            "pm.test('Status 201', () => pm.response.to.have.status(201));"
+          ]
+        }
+      }],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": { "raw": "{{baseUrl}}/users/register", "host": ["{{baseUrl}}"], "path": ["users","register"] },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"operador.novo@utfpr.edu.br\",\n  \"password\": \"senha123\"\n}"
+        }
+      }
+    },
+    {
+      "name": "03 — Ativar operador",
+      "event": [{
+        "listen": "test",
+        "script": {
+          "exec": [
+            "pm.test('Usuário ativado', () => {",
+            "  const json = pm.response.json();",
+            "  pm.expect(json.active).to.be.true;",
+            "});"
+          ]
+        }
+      }],
+      "request": {
+        "method": "PUT",
+        "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+        "url": {
+          "raw": "{{baseUrl}}/users/{{newUserId}}/activate",
+          "host": ["{{baseUrl}}"], "path": ["users","{{newUserId}}","activate"]
+        }
+      }
+    },
+    {
+      "name": "04 — Atribuir role OPERATOR",
+      "event": [{
+        "listen": "test",
+        "script": {
+          "exec": [
+            "pm.test('Role atribuída', () => {",
+            "  const json = pm.response.json();",
+            "  pm.expect(json.roles).to.include('OPERATOR');",
+            "});"
+          ]
+        }
+      }],
+      "request": {
+        "method": "PUT",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{adminToken}}" },
+          { "key": "Content-Type",  "value": "application/json" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/users/{{newUserId}}/roles",
+          "host": ["{{baseUrl}}"], "path": ["users","{{newUserId}}","roles"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"roles\": [\"OPERATOR\"]\n}"
+        }
+      }
+    },
+    {
+      "name": "05 — Listar usuários (página 0)",
+      "event": [{
+        "listen": "test",
+        "script": {
+          "exec": [
+            "pm.test('Retornou página de usuários', () => {",
+            "  const json = pm.response.json();",
+            "  pm.expect(json.content).to.be.an('array');",
+            "});"
+          ]
+        }
+      }],
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+        "url": {
+          "raw": "{{baseUrl}}/users?page=0&size=10",
+          "host": ["{{baseUrl}}"], "path": ["users"],
+          "query": [{ "key": "page", "value": "0" }, { "key": "size", "value": "10" }]
+        }
+      }
+    },
+    {
+      "name": "06 — Totalizadores por status",
+      "event": [{
+        "listen": "test",
+        "script": {
+          "exec": [
+            "pm.test('Retornou mapa de status', () => {",
+            "  const json = pm.response.json();",
+            "  pm.expect(json).to.have.property('AGUARDANDO_PAGAMENTO');",
+            "});"
+          ]
+        }
+      }],
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+        "url": { "raw": "{{baseUrl}}/orders/summary", "host": ["{{baseUrl}}"], "path": ["orders","summary"] }
+      }
+    },
+    {
+      "name": "07 — Listar pedidos e capturar ID",
+      "event": [{
+        "listen": "test",
+        "script": {
+          "exec": [
+            "const json = pm.response.json();",
+            "pm.test('Há ao menos um pedido', () => pm.expect(json.totalElements).to.be.above(0));",
+            "const id = json.content[0].id;",
+            "pm.collectionVariables.set('orderId', id);",
+            "console.log('orderId capturado:', id);"
+          ]
+        }
+      }],
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+        "url": {
+          "raw": "{{baseUrl}}/orders?page=0&size=10",
+          "host": ["{{baseUrl}}"], "path": ["orders"],
+          "query": [{ "key": "page", "value": "0" }, { "key": "size", "value": "10" }]
+        }
+      }
+    },
+    {
+      "name": "08 — Buscar pedido por ID",
+      "event": [{
+        "listen": "test",
+        "script": {
+          "exec": [
+            "pm.test('Pedido retornado com id correto', () => {",
+            "  const json = pm.response.json();",
+            "  pm.expect(json.id).to.eql(pm.collectionVariables.get('orderId'));",
+            "});"
+          ]
+        }
+      }],
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+        "url": {
+          "raw": "{{baseUrl}}/orders/{{orderId}}",
+          "host": ["{{baseUrl}}"], "path": ["orders","{{orderId}}"]
+        }
+      }
+    },
+    {
+      "name": "09 — Upload de nota fiscal (PDF)",
+      "event": [{
+        "listen": "test",
+        "script": {
+          "exec": [
+            "const json = pm.response.json();",
+            "pm.collectionVariables.set('attachmentId', json.id);",
+            "pm.test('Anexo salvo', () => pm.expect(json.id).to.be.a('string'));",
+            "console.log('attachmentId capturado:', json.id);"
+          ]
+        }
+      }],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+        "url": {
+          "raw": "{{baseUrl}}/orders/{{orderId}}/attachments?type=NOTA_FISCAL",
+          "host": ["{{baseUrl}}"], "path": ["orders","{{orderId}}","attachments"],
+          "query": [{ "key": "type", "value": "NOTA_FISCAL" }]
+        },
+        "body": {
+          "mode": "formdata",
+          "formdata": [{ "key": "file", "type": "file", "src": "", "description": "Selecione um arquivo PDF" }]
+        }
+      }
+    },
+    {
+      "name": "10 — Listar anexos do pedido",
+      "event": [{
+        "listen": "test",
+        "script": {
+          "exec": [
+            "pm.test('Retornou lista com ao menos um anexo', () => {",
+            "  const json = pm.response.json();",
+            "  pm.expect(json).to.be.an('array').with.length.above(0);",
+            "});"
+          ]
+        }
+      }],
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+        "url": {
+          "raw": "{{baseUrl}}/orders/{{orderId}}/attachments",
+          "host": ["{{baseUrl}}"], "path": ["orders","{{orderId}}","attachments"]
+        }
+      }
+    },
+    {
+      "name": "11 — Atualizar status para PAGO",
+      "event": [{
+        "listen": "test",
+        "script": {
+          "exec": [
+            "pm.test('Status atualizado para PAGO', () => {",
+            "  const json = pm.response.json();",
+            "  pm.expect(json.status).to.eql('PAGO');",
+            "});"
+          ]
+        }
+      }],
+      "request": {
+        "method": "PUT",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{adminToken}}" },
+          { "key": "Content-Type",  "value": "application/json" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/orders/{{orderId}}/status",
+          "host": ["{{baseUrl}}"], "path": ["orders","{{orderId}}","status"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"status\": \"PAGO\"\n}"
+        }
+      }
+    },
+    {
+      "name": "12 — Atualizar status para EM_TRANSPORTE (requer nota fiscal)",
+      "event": [{
+        "listen": "test",
+        "script": {
+          "exec": [
+            "pm.test('Status atualizado para EM_TRANSPORTE', () => {",
+            "  const json = pm.response.json();",
+            "  pm.expect(json.status).to.eql('EM_TRANSPORTE');",
+            "});"
+          ]
+        }
+      }],
+      "request": {
+        "method": "PUT",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{adminToken}}" },
+          { "key": "Content-Type",  "value": "application/json" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/orders/{{orderId}}/status",
+          "host": ["{{baseUrl}}"], "path": ["orders","{{orderId}}","status"]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"status\": \"EM_TRANSPORTE\"\n}"
+        }
+      }
+    },
+    {
+      "name": "13 — Histórico de status do pedido",
+      "event": [{
+        "listen": "test",
+        "script": {
+          "exec": [
+            "pm.test('Histórico com ao menos 2 entradas', () => {",
+            "  const json = pm.response.json();",
+            "  pm.expect(json).to.be.an('array').with.length.above(1);",
+            "});"
+          ]
+        }
+      }],
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+        "url": {
+          "raw": "{{baseUrl}}/orders/{{orderId}}/history",
+          "host": ["{{baseUrl}}"], "path": ["orders","{{orderId}}","history"]
+        }
+      }
+    },
+    {
+      "name": "14 — Download do anexo",
+      "event": [{
+        "listen": "test",
+        "script": {
+          "exec": [
+            "pm.test('Download retornou conteúdo binário', () => {",
+            "  pm.response.to.have.status(200);",
+            "});"
+          ]
+        }
+      }],
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+        "url": {
+          "raw": "{{baseUrl}}/attachments/{{attachmentId}}/download",
+          "host": ["{{baseUrl}}"], "path": ["attachments","{{attachmentId}}","download"]
+        }
+      }
+    },
+    {
+      "name": "15 — IDs de clientes com pedidos",
+      "event": [{
+        "listen": "test",
+        "script": {
+          "exec": [
+            "pm.test('Retornou página de customer IDs', () => {",
+            "  const json = pm.response.json();",
+            "  pm.expect(json.content).to.be.an('array');",
+            "  pm.expect(json.totalElements).to.be.above(0);",
+            "});"
+          ]
+        }
+      }],
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+        "url": {
+          "raw": "{{baseUrl}}/orders/customers?page=0&size=20",
+          "host": ["{{baseUrl}}"], "path": ["orders","customers"],
+          "query": [{ "key": "page", "value": "0" }, { "key": "size", "value": "20" }]
+        }
+      }
+    }
+  ]
+}
