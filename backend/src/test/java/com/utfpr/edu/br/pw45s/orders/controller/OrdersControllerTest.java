@@ -89,4 +89,21 @@ class OrdersControllerTest {
 
 		assertEquals(1, response.size());
 	}
+
+	@Test
+	void customersReturnsPaginatedIds() {
+		OrdersService ordersService = mock(OrdersService.class);
+		OrderStatusHistoryService historyService = mock(OrderStatusHistoryService.class);
+		OrdersController controller = new OrdersController(ordersService, historyService, new OrderMapper());
+
+		UUID customerId = UUID.randomUUID();
+		var pageable = PageRequest.of(0, 10);
+		var page = new PageImpl<>(List.of(customerId), pageable, 1);
+		when(ordersService.listCustomerIds(pageable)).thenReturn(page);
+
+		var response = controller.customers(pageable).getBody();
+
+		assertEquals(1, response.totalElements());
+		assertEquals(customerId, response.content().get(0));
+	}
 }
