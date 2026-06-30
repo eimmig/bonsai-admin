@@ -1,7 +1,7 @@
 create table customers (
     id uuid primary key,
-    email varchar2 (255) not null,
-    name varchar2 (255) not null,
+    email varchar (255) not null,
+    name varchar (255) not null,
     created_at timestamp not null default now()
 );
 
