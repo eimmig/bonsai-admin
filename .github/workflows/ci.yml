@@ -76,7 +76,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.dependency-check/data
-          key: owasp-nvd-${{ runner.os }}-${{ github.run_id }}
+          key: owasp-nvd-${{ runner.os }}-${{ hashFiles('**/pom.xml') }}
           restore-keys: |
             owasp-nvd-${{ runner.os }}-
 
@@ -89,6 +89,7 @@ jobs:
           -DfailBuildOnCVSS=7
           -DsuppressionFile=${{ github.workspace }}/.github/owasp-suppressions.xml
           -DnvdApiKey=$NVD_API_KEY
+          -DnvdApiDelay=6000
         continue-on-error: false
 
       - name: Publicar relatório OWASP
