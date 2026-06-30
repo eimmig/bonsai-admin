@@ -3,7 +3,6 @@ package com.utfpr.edu.br.pw45s.shared.config;
 import com.utfpr.edu.br.pw45s.attachments.dto.AttachmentMapper;
 import com.utfpr.edu.br.pw45s.orders.dto.OrderMapper;
 import com.utfpr.edu.br.pw45s.users.dto.UserMapper;
-import com.utfpr.edu.br.pw45s.users.repository.UserRepository;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -16,8 +15,8 @@ public class MapperConfig {
 	}
 
 	@Bean
-	public OrderMapper orderMapper(UserRepository userRepository) {
-		return new OrderMapper(userRepository);
+	public OrderMapper orderMapper() {
+		return new OrderMapper();
 	}
 
 	@Bean

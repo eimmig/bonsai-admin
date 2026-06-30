@@ -2,17 +2,13 @@ package com.utfpr.edu.br.pw45s.orders.dto;
 
 import com.utfpr.edu.br.pw45s.orders.entity.Order;
 import com.utfpr.edu.br.pw45s.orders.entity.OrderItem;
-import com.utfpr.edu.br.pw45s.users.repository.UserRepository;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
-import java.util.Optional;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
 class OrderMapperTest {
 
@@ -23,14 +19,21 @@ class OrderMapperTest {
 		OrderItem item = new OrderItem(order, "Keyboard", 1, BigDecimal.valueOf(10));
 		order.getItems().add(item);
 
-		UserRepository userRepository = mock(UserRepository.class);
-		when(userRepository.findById(customerId)).thenReturn(Optional.empty());
-
-		OrderMapper mapper = new OrderMapper(userRepository);
-		OrderResponse response = mapper.toResponse(order);
+		OrderMapper mapper = new OrderMapper();
+		OrderResponse response = mapper.toResponse(order, "cliente@email.com");
 
 		assertEquals(1, response.items().size());
 		assertEquals("Keyboard", response.items().get(0).productName());
+		assertEquals("cliente@email.com", response.customerEmail());
+	}
+
+	@Test
+	void mapsOrderToResponseWithNullEmail() {
+		Order order = new Order(UUID.randomUUID());
+
+		OrderMapper mapper = new OrderMapper();
+		OrderResponse response = mapper.toResponse(order, null);
+
 		assertNull(response.customerEmail());
 	}
 }

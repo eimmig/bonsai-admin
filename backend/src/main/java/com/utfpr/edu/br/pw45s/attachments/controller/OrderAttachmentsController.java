@@ -38,8 +38,7 @@ public class OrderAttachmentsController {
 	@PreAuthorize("hasAnyRole('ADMIN','OPERATOR')")
 	@GetMapping("/{orderId}/attachments")
 	public ResponseEntity<List<AttachmentResponse>> list(@PathVariable UUID orderId) {
-		var attachments = attachmentsService.listByOrder(orderId);
-		return ResponseEntity.ok(attachments.stream().map(mapper::toResponse).toList());
+		return ResponseEntity.ok(attachmentsService.listByOrder(orderId));
 	}
 
 	@Operation(summary = "Fazer upload de anexo", description = "Envia arquivo para o MinIO e associa ao pedido. Para NOTA_FISCAL o arquivo deve ser PDF. Requer ADMIN ou OPERATOR.")

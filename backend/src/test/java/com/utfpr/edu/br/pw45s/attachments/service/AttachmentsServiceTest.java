@@ -1,6 +1,7 @@
 package com.utfpr.edu.br.pw45s.attachments.service;
 
 import com.utfpr.edu.br.pw45s.attachments.config.MinioProperties;
+import com.utfpr.edu.br.pw45s.attachments.dto.AttachmentMapper;
 import com.utfpr.edu.br.pw45s.attachments.entity.Attachment;
 import com.utfpr.edu.br.pw45s.attachments.entity.AttachmentType;
 import com.utfpr.edu.br.pw45s.attachments.repository.AttachmentRepository;
@@ -35,6 +36,9 @@ class AttachmentsServiceTest {
 
 	@Mock
 	private OrderRepository orderRepository;
+
+	@Mock
+	private AttachmentMapper mapper;
 
 	@Mock
 	private MinioClient minioClient;

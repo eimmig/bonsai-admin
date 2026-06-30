@@ -3,12 +3,12 @@ package com.utfpr.edu.br.pw45s.orders.service;
 import com.utfpr.edu.br.pw45s.attachments.entity.AttachmentType;
 import com.utfpr.edu.br.pw45s.attachments.repository.AttachmentRepository;
 import com.utfpr.edu.br.pw45s.audit.service.AuditService;
+import com.utfpr.edu.br.pw45s.customers.entity.Customer;
+import com.utfpr.edu.br.pw45s.customers.repository.CustomerRepository;
 import com.utfpr.edu.br.pw45s.notifications.service.NotificationsService;
 import com.utfpr.edu.br.pw45s.orders.entity.Order;
 import com.utfpr.edu.br.pw45s.orders.entity.OrderStatus;
 import com.utfpr.edu.br.pw45s.orders.repository.OrderRepository;
-import com.utfpr.edu.br.pw45s.users.entity.User;
-import com.utfpr.edu.br.pw45s.users.repository.UserRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -45,7 +45,7 @@ class OrdersServiceTest {
 	private AttachmentRepository attachmentRepository;
 
 	@Mock
-	private UserRepository userRepository;
+	private CustomerRepository customerRepository;
 
 	@Mock
 	private NotificationsService notificationsService;
@@ -100,14 +100,15 @@ class OrdersServiceTest {
 		when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
 		when(attachmentRepository.existsByOrderIdAndTypeAndMimeType(orderId, AttachmentType.NOTA_FISCAL, "application/pdf"))
 			.thenReturn(true);
-		when(userRepository.findById(customerId)).thenReturn(Optional.of(new User("user@example.com", "hash")));
+		when(customerRepository.findById(customerId))
+			.thenReturn(Optional.of(new Customer(customerId, "cliente@email.com", "Cliente Teste")));
 
 		Order updated = ordersService.updateStatus(orderId, OrderStatus.EM_TRANSPORTE);
 
 		assertEquals(OrderStatus.EM_TRANSPORTE, updated.getStatus());
 		verify(historyService).registerEntry(eq(orderId), eq(OrderStatus.AGUARDANDO_PAGAMENTO), eq(OrderStatus.EM_TRANSPORTE), any());
 		verify(auditService).log(eq("ORDER"), eq(orderId), eq("STATUS_CHANGE"), any());
-		verify(notificationsService).sendStatusChangeEmail(eq("user@example.com"), any(), eq(OrderStatus.AGUARDANDO_PAGAMENTO), eq(OrderStatus.EM_TRANSPORTE));
+		verify(notificationsService).sendStatusChangeEmail(eq("cliente@email.com"), any(), eq(OrderStatus.AGUARDANDO_PAGAMENTO), eq(OrderStatus.EM_TRANSPORTE));
 	}
 
 	@Test
@@ -120,9 +121,10 @@ class OrdersServiceTest {
 		when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
 		when(attachmentRepository.existsByOrderIdAndTypeAndMimeType(orderId, AttachmentType.NOTA_FISCAL, "application/pdf"))
 			.thenReturn(true);
-		when(userRepository.findById(customerId)).thenReturn(Optional.of(new User("user@example.com", "hash")));
+		when(customerRepository.findById(customerId))
+			.thenReturn(Optional.of(new Customer(customerId, "cliente@email.com", "Cliente Teste")));
 		doThrow(new RuntimeException("fail")).when(notificationsService)
-			.sendStatusChangeEmail(eq("user@example.com"), any(), eq(OrderStatus.AGUARDANDO_PAGAMENTO), eq(OrderStatus.EM_TRANSPORTE));
+			.sendStatusChangeEmail(eq("cliente@email.com"), any(), eq(OrderStatus.AGUARDANDO_PAGAMENTO), eq(OrderStatus.EM_TRANSPORTE));
 
 		Order updated = ordersService.updateStatus(orderId, OrderStatus.EM_TRANSPORTE);
 

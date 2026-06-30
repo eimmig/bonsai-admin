@@ -19,7 +19,7 @@ public interface OrderRepository extends JpaRepository<Order, UUID>, JpaSpecific
     List<Object[]> countGroupedByStatus();
 
     @Query("SELECT DISTINCT o.customerId FROM Order o")
-    List<UUID> findDistinctCustomerIds();
+    Page<UUID> findDistinctCustomerIds(Pageable pageable);
 
     @Override
     @EntityGraph(attributePaths = {"items"})

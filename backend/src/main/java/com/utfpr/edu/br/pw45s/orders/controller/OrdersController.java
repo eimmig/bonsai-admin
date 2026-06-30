@@ -5,6 +5,7 @@ import com.utfpr.edu.br.pw45s.orders.dto.OrderMapper;
 import com.utfpr.edu.br.pw45s.orders.dto.OrderResponse;
 import com.utfpr.edu.br.pw45s.orders.dto.OrderStatusHistoryResponse;
 import com.utfpr.edu.br.pw45s.orders.dto.UpdateOrderStatusRequest;
+import com.utfpr.edu.br.pw45s.orders.entity.Order;
 import com.utfpr.edu.br.pw45s.orders.entity.OrderStatus;
 import com.utfpr.edu.br.pw45s.orders.service.OrdersService;
 import com.utfpr.edu.br.pw45s.orders.service.OrderStatusHistoryService;
@@ -29,7 +30,9 @@ import org.springframework.web.server.ResponseStatusException;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Tag(name = "Pedidos")
 @RestController
@@ -45,12 +48,12 @@ public class OrdersController {
 		this.mapper = mapper;
 	}
 
-	@Operation(summary = "IDs de clientes com pedidos", description = "Retorna lista de UUIDs distintos de clientes que possuem pelo menos um pedido. Requer ADMIN ou OPERATOR.")
-	@ApiResponse(responseCode = "200", description = "Lista de UUIDs")
+	@Operation(summary = "IDs de clientes com pedidos", description = "Retorna página de UUIDs distintos de clientes que possuem pelo menos um pedido. Requer ADMIN ou OPERATOR.")
+	@ApiResponse(responseCode = "200", description = "Página de UUIDs")
 	@PreAuthorize("hasAnyRole('ADMIN','OPERATOR')")
 	@GetMapping("/customers")
-	public ResponseEntity<List<UUID>> customers() {
-		return ResponseEntity.ok(ordersService.listCustomerIds());
+	public ResponseEntity<PageResponse<UUID>> customers(Pageable pageable) {
+		return ResponseEntity.ok(PageResponse.of(ordersService.listCustomerIds(pageable)));
 	}
 
 	@Operation(summary = "Totalizadores por status", description = "Retorna a contagem de pedidos em cada status. Requer ADMIN ou OPERATOR.")
@@ -73,7 +76,9 @@ public class OrdersController {
 		Pageable pageable
 	) {
 		var page = ordersService.list(status, customerId, dateFrom, dateTo, pageable);
-		return ResponseEntity.ok(PageResponse.of(page.map(mapper::toResponse)));
+		Set<UUID> ids = page.stream().map(Order::getCustomerId).collect(Collectors.toSet());
+		Map<UUID, String> emailMap = ordersService.resolveCustomerEmails(ids);
+		return ResponseEntity.ok(PageResponse.of(page.map(o -> mapper.toResponse(o, emailMap.get(o.getCustomerId())))));
 	}
 
 	@Operation(summary = "Buscar pedido por ID", description = "Requer ADMIN ou OPERATOR.")
@@ -84,7 +89,7 @@ public class OrdersController {
 	public ResponseEntity<OrderResponse> getById(@PathVariable UUID id) {
 		var order = ordersService.findById(id)
 			.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found"));
-		return ResponseEntity.ok(mapper.toResponse(order));
+		return ResponseEntity.ok(mapper.toResponse(order, ordersService.resolveCustomerEmail(order.getCustomerId())));
 	}
 
 	@Operation(summary = "Atualizar status do pedido", description = "Para EM_TRANSPORTE é obrigatório ter nota fiscal PDF anexada. Requer ADMIN ou OPERATOR.")
@@ -98,7 +103,7 @@ public class OrdersController {
 		@RequestBody @Valid UpdateOrderStatusRequest request
 	) {
 		var order = ordersService.updateStatus(id, request.status());
-		return ResponseEntity.status(HttpStatus.OK).body(mapper.toResponse(order));
+		return ResponseEntity.status(HttpStatus.OK).body(mapper.toResponse(order, ordersService.resolveCustomerEmail(order.getCustomerId())));
 	}
 
 	@Operation(summary = "Histórico de status", description = "Lista todas as mudanças de status de um pedido. Requer ADMIN ou OPERATOR.")
