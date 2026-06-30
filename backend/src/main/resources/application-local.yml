@@ -1,0 +1,11 @@
+security:
+  jwt:
+    secret: secret-pw45s-1234567890123456789
+
+spring:
+  flyway:
+    enabled: false
+    clean-disabled: false
+  jpa:
+    hibernate:
+      ddl-auto: none
